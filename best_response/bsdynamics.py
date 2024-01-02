@@ -112,7 +112,7 @@ def sim(points):
         # plt.show()
     print('SIM ENDS')
 def main():
-    points = getdata('data2.txt')
+    points = getdata('best_response/data2.txt')
     sim(points)
 
 

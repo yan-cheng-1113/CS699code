@@ -4,7 +4,7 @@ import random
 points = [(random.uniform(0, 100), 0) for _ in range(50)]
 
 # Store the coordinates into a file
-file_path = 'data2.txt'
+file_path = 'best_response/data2.txt'
 with open(file_path, 'w') as file:
     for point in points:
         file.write(f"{point[0]:.6f} {point[1]:.6f}\n")
