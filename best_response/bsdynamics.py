@@ -19,6 +19,16 @@ def getdata(fileName):
             i+=1
     return x
 
+def plotdata(points):
+   plt.scatter(points[:,0], points[:,1], label='sources')
+   plt.scatter(big_target[0], big_target[1], c='purple', s=100, label='big_target')
+   plt.scatter(small_target[0], small_target[1], c='orange', s=100, label="small_target")
+   plt.scatter(cur_belief[0], cur_belief[1], c='green', s=100, label='current_belief')
+   plt.title('Data Points Distribution')
+   plt.legend()
+   plt.show() 
+   return
+
 def g_fct(x, mean, variance):
     pi = math.pi
     ret = np.exp(-(x - mean)**2 / (2 * variance**2))
@@ -43,7 +53,7 @@ def best_points(points, weighted_pos, target, num_points):
             fct = g_fct(cur_d, 0, 20)
             #print(f'fct: {big_fct}')
             cur_d = cur_d * fct
-            print(f'{j+1}--cur_d2: {cur_d}')
+            print(f'{j+1}--distantce to current belief: {cur_d}')
             if(points[j][0] > cur_belief[0]):
                 #print(f'rcur_point: {points[j]}')
                 u[0] = cur_belief[0] + cur_d
@@ -70,12 +80,12 @@ def best_points(points, weighted_pos, target, num_points):
 
 def big_endian(points, weighted_pos, num_points):
     global big_target
-    print('BIG::::::::::::::::::::::::::::::::::::')
+    print('::::::::::::::::::::::BIG::::::::::::::::::::::::')
     return best_points(points, weighted_pos, big_target, num_points)
 
 def small_endian(points, weighted_pos, num_points):
     global small_target
-    print('SMALL::::::::::::::::::::::::::::::::::::')
+    print(':::::::::::::::::::::::SMALL:::::::::::::::::::::::')
     return best_points(points, weighted_pos, small_target, num_points)
 
 def sim(points):
@@ -95,6 +105,7 @@ def sim(points):
         print('------------------------ITERATION ENDS---------------------------') 
         if (last_cur_big[0] == cur_big[0] and last_cur_small[0] == cur_small[0]):
             print(f'CONVERGES at the {i}th iteration')
+            print(f'final big: {cur_big}, final small: {cur_small}, final belief: {cur_belief}')
             break
         # print(f'big: {cur_big}')
         # print(f'small: {cur_small}') 
@@ -113,6 +124,7 @@ def sim(points):
     print('SIM ENDS')
 def main():
     points = getdata('best_response/data2.txt')
+    plotdata(points)
     sim(points)
 
 
