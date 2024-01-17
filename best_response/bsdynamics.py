@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import math
+import copy
 
 cur_belief = np.array([45, 0])
 big_target = np.array([25, 0])
@@ -30,21 +30,25 @@ def plotdata(points):
    return
 
 def g_fct(x, mean, variance):
-    pi = math.pi
     ret = np.exp(-(x - mean)**2 / (2 * variance**2))
     return ret
 
-def best_points(points, weighted_pos, target, num_points):
+def best_points(points, weighted_pos_arr, target, num_points):
     global cur_belief
     distance = 100
     index = -1
     best_v = np.array([-1.0, 0.0])
     weighted_p = np.array([-1.0, 0.0])
+    pts_arr = []
+    wpts_arr = []
+    choices = []
     for k in range(num_points):
+        print(f'{k+1}th Point:')
         prev_i = index
         for j in range(len(points)):
 
             if(j == prev_i):
+                print('repeat',j)
                 continue
             
             u = np.array([-1.0, 0.0]) 
@@ -62,10 +66,10 @@ def best_points(points, weighted_pos, target, num_points):
                 #print(f'lcur_point: {points[j]}')
                 u[0] = cur_belief[0] - cur_d
                 #print(u[0]) 
-            if(weighted_pos[0] == -1):
+            if(len(weighted_pos_arr) == 0):
                 v = (u + cur_belief) / 2
             else: 
-                v = (u + cur_belief + weighted_pos) / 3
+                v = (u + cur_belief + sum(weighted_pos_arr)) / (len(weighted_pos_arr) + 2)
             if(np.linalg.norm(v - target) < distance):
                 index = j 
                 distance = np.linalg.norm(v - target)
@@ -73,10 +77,14 @@ def best_points(points, weighted_pos, target, num_points):
                 best_v = v
                 print(f'wp: {weighted_p} | pt: {points[index]}') 
             print('----------------------------------------')
-    cur = points[index]
-    cur_belief = best_v
-        #print(f'big: {cur_big}')
-    return cur, weighted_p 
+        cur = points[index]
+        choices.append(index+1)
+        pts_arr.append(cur)
+        wpts_arr.append(weighted_p)
+        cur_belief = best_v
+        print(f'choices: {choices}')
+    #return cur, weighted_p
+    return pts_arr, wpts_arr, choices
 
 def big_endian(points, weighted_pos, num_points):
     global big_target
@@ -89,24 +97,32 @@ def small_endian(points, weighted_pos, num_points):
     return best_points(points, weighted_pos, small_target, num_points)
 
 def sim(points):
-    cur_big = np.array([-1, 0])
-    cur_small = np.array([-1, 0])
-    weighted_pos_s = np.array([-1, 0]) 
+    cur_big = []
+    cur_small = []
+    weighted_pos_s = []
+    big_choices = []
+    small_choices = []
+    num_pts = 2
     print('SIM STARTS')
     for i in range(8):
-        last_cur_big = cur_big
-        last_cur_small = cur_small
+        last_big_choice = big_choices
+        last_small_choice = small_choices
         print(f'------------------------ITERATION {i}---------------------------')
-        cur_big, weighted_pos_b = big_endian(points, weighted_pos_s, 1)
+        cur_big, weighted_pos_b, big_indices = big_endian(points, weighted_pos_s, num_pts)
+        
         print(f'big: {cur_big} weighted big: {weighted_pos_b} current: {cur_belief}')
-        cur_small, weighted_pos_s = small_endian(points, weighted_pos_b, 1)
+        cur_small, weighted_pos_s, small_indices = small_endian(points, weighted_pos_b, num_pts)
+        
         print(f'small: {cur_small} weighted small: {weighted_pos_s} current: {cur_belief}')
         #print(f'small: {cur_small}')
-        print('------------------------ITERATION ENDS---------------------------') 
-        if (last_cur_big[0] == cur_big[0] and last_cur_small[0] == cur_small[0]):
-            print(f'CONVERGES at the {i}th iteration')
-            print(f'final big: {cur_big}, final small: {cur_small}, final belief: {cur_belief}')
-            break
+        print('------------------------ITERATION ENDS---------------------------')
+        if i>0: 
+            if (last_big_choice[-1] == big_indices and last_small_choice[-1] == small_indices):
+                print(f'CONVERGES at the {i}th iteration')
+                print(f'final big: {big_choices}, final small: {small_choices}, final belief: {cur_belief}')
+                break
+        big_choices.append(big_indices)
+        small_choices.append(small_indices)
         # print(f'big: {cur_big}')
         # print(f'small: {cur_small}') 
         # mid = (cur_big + cur_small) / 2
@@ -124,7 +140,7 @@ def sim(points):
     print('SIM ENDS')
 def main():
     points = getdata('best_response/data2.txt')
-    plotdata(points)
+    #plotdata(points)
     sim(points)
 
 
