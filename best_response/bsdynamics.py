@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import copy
+from itertools import combinations
 
 cur_belief = np.array([45, 0])
 big_target = np.array([25, 0])
 small_target = np.array([75, 0])
 
+"""Load into data"""
 def getdata(fileName):
     with open(fileName) as f:
         lines = f.readlines()
@@ -29,9 +30,44 @@ def plotdata(points):
    plt.show() 
    return
 
+"""Given a distance, calculates its weight using Gaussian distribution"""
 def g_fct(x, mean, variance):
     ret = np.exp(-(x - mean)**2 / (2 * variance**2))
     return ret
+
+def best_combination(points, weighted_pos_arr, target, num_points):
+    global cur_belief
+    distance = 100
+    index = -1
+    best_v = np.array([-1.0, 0.0])
+    combs = [list(comb) for comb in combinations(points, num_points)]
+
+    for i in range(len(combs)):
+        u_arr = [np.array([-1.0, 0.0]) for _ in range(num_points)]
+        v = np.array([-1.0, 0.0])
+        cur_ds = [np.linalg.norm(point - cur_belief) for point in combs[i]]
+        fcts = [g_fct(cur_d, 0, 20) for cur_d in cur_ds]
+        cur_ds = [cur_ds[i] * fcts[i] for i in range(len(cur_ds))]
+
+        for j in range(len(combs[i])):
+            if(combs[i][j][0] > cur_belief[0]):
+                u_arr[j][0] = cur_belief[0] + cur_ds[j]
+            else:
+                u_arr[j][0] = cur_belief[0] - cur_ds[j]
+        
+        if len(weighted_pos_arr) == 0:
+            v = (sum(u_arr) + cur_belief) / (len(u_arr) + 1)
+        else:
+            v = (sum(u_arr) + sum(weighted_pos_arr) + cur_belief) / (len(u_arr) * 2 + 1)
+        
+        if(np.linalg.norm(v - target) < distance):
+            index = i
+            distance = np.linalg.norm(v - target)
+            wpts_arr =  u_arr
+            best_v = v
+    cur_belief = best_v
+    best_comb = combs[index]
+    return best_comb, wpts_arr
 
 def best_points(points, weighted_pos_arr, target, num_points):
     global cur_belief
@@ -48,9 +84,8 @@ def best_points(points, weighted_pos_arr, target, num_points):
         for j in range(len(points)):
 
             if(j == prev_i):
-                print('repeat',j)
                 continue
-            
+            v = np.array([-1.0, 0.0])
             u = np.array([-1.0, 0.0]) 
             cur_d = np.linalg.norm(points[j] - cur_belief)
             #print(f'cur_d: {cur_d}')
@@ -90,28 +125,32 @@ def big_endian(points, weighted_pos, num_points):
     global big_target
     print('::::::::::::::::::::::BIG::::::::::::::::::::::::')
     return best_points(points, weighted_pos, big_target, num_points)
+    # return best_combination(points, weighted_pos, big_target, num_points)
 
 def small_endian(points, weighted_pos, num_points):
     global small_target
     print(':::::::::::::::::::::::SMALL:::::::::::::::::::::::')
     return best_points(points, weighted_pos, small_target, num_points)
+    # return best_combination(points, weighted_pos, small_target, num_points)
 
 def sim(points):
-    cur_big = []
-    cur_small = []
+    # cur_big = []
+    # cur_small = []
     weighted_pos_s = []
     big_choices = []
     small_choices = []
-    num_pts = 2
+    num_pts = 1
     print('SIM STARTS')
-    for i in range(8):
+    for i in range(10):
         last_big_choice = big_choices
         last_small_choice = small_choices
         print(f'------------------------ITERATION {i}---------------------------')
         cur_big, weighted_pos_b, big_indices = big_endian(points, weighted_pos_s, num_pts)
+        # cur_big, weighted_pos_b = big_endian(points, weighted_pos_s, num_pts)
         
         print(f'big: {cur_big} weighted big: {weighted_pos_b} current: {cur_belief}')
         cur_small, weighted_pos_s, small_indices = small_endian(points, weighted_pos_b, num_pts)
+        # cur_small, weighted_pos_s = small_endian(points, weighted_pos_b, num_pts) 
         
         print(f'small: {cur_small} weighted small: {weighted_pos_s} current: {cur_belief}')
         #print(f'small: {cur_small}')
@@ -123,10 +162,13 @@ def sim(points):
                 break
         big_choices.append(big_indices)
         small_choices.append(small_indices)
+
+
+
         # print(f'big: {cur_big}')
         # print(f'small: {cur_small}') 
         # mid = (cur_big + cur_small) / 2
-        #print(f'mid: {mid}')
+        # print(f'mid: {mid}')
         # plt.scatter(big_target[0], big_target[1], color='red', s=80)
         # plt.scatter(small_target[0], small_target[1], color='purple', s=80)
         # plt.scatter(points[:,0], points[:,1])
@@ -142,6 +184,7 @@ def main():
     points = getdata('best_response/data2.txt')
     #plotdata(points)
     sim(points)
+    #best_combination(points, 3)
 
 
     
