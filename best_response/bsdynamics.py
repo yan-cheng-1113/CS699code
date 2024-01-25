@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from itertools import combinations
+import copy
 
 cur_belief = np.array([45, 0])
 big_target = np.array([25, 0])
@@ -19,6 +20,17 @@ def getdata(fileName):
             x[i] = np.array([x_1, x_2])
             i+=1
     return x
+
+def get_indices(list, points):
+    indices = []
+    for point in list:
+        print(f'current point {point}')
+        print(np.flatnonzero((point==points).all(1))[0])
+        indices.append(np.flatnonzero((point==points).all(1))[0])
+    
+    for i in range(len(indices)):
+        indices[i] += 1
+    return indices
 
 def plotdata(points):
    plt.scatter(points[:,0], points[:,1], label='sources')
@@ -121,35 +133,45 @@ def best_points(points, weighted_pos_arr, target, num_points):
     #return cur, weighted_p
     return pts_arr, wpts_arr, choices
 
-def big_endian(points, weighted_pos, num_points):
+def big_endian1(points, weighted_pos, num_points):
     global big_target
     print('::::::::::::::::::::::BIG::::::::::::::::::::::::')
     return best_points(points, weighted_pos, big_target, num_points)
     # return best_combination(points, weighted_pos, big_target, num_points)
 
-def small_endian(points, weighted_pos, num_points):
+def big_endian2(points, weighted_pos, num_points):
+    global big_target
+    print('::::::::::::::::::::::BIG::::::::::::::::::::::::')
+    return best_combination(points, weighted_pos, big_target, num_points)
+
+def small_endian1(points, weighted_pos, num_points):
     global small_target
     print(':::::::::::::::::::::::SMALL:::::::::::::::::::::::')
     return best_points(points, weighted_pos, small_target, num_points)
     # return best_combination(points, weighted_pos, small_target, num_points)
 
-def sim(points):
+def small_endian2(points, weighted_pos, num_points):
+    global small_target
+    print(':::::::::::::::::::::::SMALL:::::::::::::::::::::::')
+    return best_combination(points, weighted_pos, small_target, num_points)
+
+def sim1(points):
     # cur_big = []
     # cur_small = []
     weighted_pos_s = []
     big_choices = []
     small_choices = []
-    num_pts = 1
+    num_pts = 2
     print('SIM STARTS')
     for i in range(10):
         last_big_choice = big_choices
         last_small_choice = small_choices
         print(f'------------------------ITERATION {i}---------------------------')
-        cur_big, weighted_pos_b, big_indices = big_endian(points, weighted_pos_s, num_pts)
+        cur_big, weighted_pos_b, big_indices = big_endian1(points, weighted_pos_s, num_pts)
         # cur_big, weighted_pos_b = big_endian(points, weighted_pos_s, num_pts)
         
         print(f'big: {cur_big} weighted big: {weighted_pos_b} current: {cur_belief}')
-        cur_small, weighted_pos_s, small_indices = small_endian(points, weighted_pos_b, num_pts)
+        cur_small, weighted_pos_s, small_indices = small_endian1(points, weighted_pos_b, num_pts)
         # cur_small, weighted_pos_s = small_endian(points, weighted_pos_b, num_pts) 
         
         print(f'small: {cur_small} weighted small: {weighted_pos_s} current: {cur_belief}')
@@ -162,8 +184,6 @@ def sim(points):
                 break
         big_choices.append(big_indices)
         small_choices.append(small_indices)
-
-
 
         # print(f'big: {cur_big}')
         # print(f'small: {cur_small}') 
@@ -180,11 +200,44 @@ def sim(points):
         # plt.plot(cur_big, cur_small, '-o')
         # plt.show()
     print('SIM ENDS')
+
+def sim2(points):
+    print('SIM Starts')
+    num_pts = 2
+    big_indices = []
+    small_indices = []
+    weighted_pos_s = []
+    for i in range(10):
+        if i > 0:
+            last_big = big_indices[-1]
+            last_small = small_indices[-1]
+
+        print(f'------------------------ITERATION {i}---------------------------')
+        cur_big, weighted_pos_b = big_endian2(points, weighted_pos_s, num_pts)
+        bi = get_indices(cur_big, points)
+        
+        print(f'big: {cur_big} weighted big: {weighted_pos_b} current: {cur_belief}')
+        cur_small, weighted_pos_s = small_endian2(points, weighted_pos_b, num_pts) 
+        si = get_indices(cur_small, points)  
+        
+        print(f'small: {cur_small} weighted small: {weighted_pos_s} current: {cur_belief}')
+        #print(f'small: {cur_small}')
+        print('------------------------ITERATION ENDS---------------------------')
+
+        if i > 0:
+            if  bi == last_big and si == last_small:
+                print(f'CONVERGES at the {i}th iteration')
+                print(f'final big: {big_indices}, final small: {small_indices}, final belief: {cur_belief}')
+                break 
+        
+        big_indices.append(bi)
+        small_indices.append(si)
+
 def main():
     points = getdata('best_response/data2.txt')
     #plotdata(points)
-    sim(points)
-    #best_combination(points, 3)
+    # sim1(points)
+    sim2(points)
 
 
     
