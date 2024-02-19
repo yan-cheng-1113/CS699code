@@ -2,10 +2,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize as opt
 from itertools import combinations
+import copy
 
-cur_belief = np.array([0, 0])
-big_target = np.array([-30, 0])
-small_target = np.array([40, 0])
+cur_belief = np.array([0.0, 0.0])
+big_target = np.array([30.0,0.0])
+small_target = np.array([10.0, 0.0])
 
 """Load into data"""
 def getdata(fileName):
@@ -45,8 +46,8 @@ def plotdata(points):
 """Given a distance, calculates its weight using Gaussian distribution"""
 def g_fct(x, variance):
     global cur_belief
-    ret = np.exp(-(x - cur_belief[0]) ** 2 / (2 * variance ** 2))
-    return ret
+    c = np.exp(-(x - cur_belief[0]) ** 2 / (2 * variance ** 2))
+    return c
 
 def new_belief(x, y, var):
     c_1 = g_fct(x, var)
@@ -55,6 +56,7 @@ def new_belief(x, y, var):
     # print(f'new belief: {ret}')
     return ret
 
+#coef[0]: y, coef[1]: variance, coef[2]: target
 def distance(x, coefs):
     return (new_belief(x, coefs[0], coefs[1]) - coefs[2]) ** 2
 
@@ -92,7 +94,7 @@ def best_combination(points, weighted_pos_arr, target, num_points):
     best_comb = combs[index]
     return best_comb, wpts_arr
 
-def best_points(points, x, y, target, variance):
+def best_points_dis(points, x, y, target, variance):
     coefs = [y[0], variance, target[0]]
     x0=x[0]
     result = opt.minimize(distance, x0, args=coefs)
@@ -102,51 +104,94 @@ def best_points(points, x, y, target, variance):
     index = np.argsort(ds)[0]
     return points[index], index
 
-def big_endian1(points, x, y, variance):
+def best_points_cont(x, y, target, variance):
+    coefs = [y[0], variance, target[0]]
+    x0=x[0]
+    result = opt.minimize(distance, x0, args=coefs)
+    print(result.message)
+    x0 = np.array([result.x[0], 0.0])
+    return x0
+
+def big_endian_dis(points, x, y, variance):
     global big_target
     print('::::::::::::::::::::::BIG::::::::::::::::::::::::')
-    return best_points(points, x, y, big_target, variance)
+    return best_points_dis(points, x, y, big_target, variance)
     # return best_combination(points, weighted_pos, big_target, num_points)
+
+def small_endian_dis(points, x, y, variance):
+    global small_target
+    print(':::::::::::::::::::::::SMALL:::::::::::::::::::::::')
+    return best_points_dis(points, x, y, small_target, variance)
+    # return best_combination(points, weighted_pos, small_target, num_points)
+
+def big_endian_cont(x, y, variance):
+    global big_target
+    print(':::::::::::::::::::::::BIG:::::::::::::::::::::::')
+    return best_points_cont(x, y, big_target, variance)
+    # return best_combination(points, weighted_pos, small_target, num_points)
+
+def small_endian_cont(x, y, variance):
+    global small_target
+    print(':::::::::::::::::::::::SMALL:::::::::::::::::::::::')
+    return best_points_cont(x, y, small_target, variance)
+    # return best_combination(points, weighted_pos, small_target, num_points)
 
 def big_endian2(points, weighted_pos, num_points):
     global big_target
     print('::::::::::::::::::::::BIG::::::::::::::::::::::::')
     return best_combination(points, weighted_pos, big_target, num_points)
 
-def small_endian1(points, x, y, variance):
-    global small_target
-    print(':::::::::::::::::::::::SMALL:::::::::::::::::::::::')
-    return best_points(points, x, y, small_target, variance)
-    # return best_combination(points, weighted_pos, small_target, num_points)
+
 
 def small_endian2(points, weighted_pos, num_points):
     global small_target
     print(':::::::::::::::::::::::SMALL:::::::::::::::::::::::')
     return best_combination(points, weighted_pos, small_target, num_points)
 
-def sim1(points, v):
-    # cur_big = []
-    # cur_small = []
-    cur_big = np.array([-30, 0])
-    cur_small = np.array([40, 0])
-    big_i = 0
-    small_i = 0
+def sim_discrete(points, v):
+    cur_big = copy.deepcopy(big_target)
+    cur_small = copy.deepcopy(small_target)
+    # cur_big = np.array([0.0, 0.0])
+    # cur_small = np.array([0.0, 0.0])
+    big_i = -1
+    small_i = -1
     print('SIM STARTS')
     for i in range(10):
         last_big_i = big_i
         last_small_i = small_i
         print(f'------------------------ITERATION {i}---------------------------')
-        cur_big, big_i = big_endian1(points, cur_big, cur_small, v)
+        cur_big, big_i = big_endian_dis(points, cur_big, cur_small, v)
         # cur_big, weighted_pos_b = big_endian(points, weighted_pos_s, num_pts)
-        
-        cur_small, small_i = small_endian1(points, cur_small, cur_big, v)
-        n_b = new_belief(cur_big, cur_small, v)[0]
+        cur_small, small_i = small_endian_dis(points, cur_small, cur_big, v)
+        n_b = new_belief(cur_big[0], cur_small[0], v)
         # cur_small, weighted_pos_s = small_endian(points, weighted_pos_b, num_pts) 
         print(f'belief: {n_b}, big: {cur_big[0]}, big_i: {big_i}, small: {cur_small[0]}, small_i: {small_i}')
         #print(f'small: {cur_small}')
         print('------------------------ITERATION ENDS---------------------------')
         if (i>0 and last_big_i == big_i and last_small_i == small_i):
-            print(f'sim converges at ITERATION{i}')
+            print(f'sim converges at ITERATION {i-1}')
+            break 
+    print('SIM ENDS')
+
+def sim_cont(v):
+    cur_big = copy.deepcopy(big_target)
+    cur_small = copy.deepcopy(small_target)
+    # cur_big = np.array([60.0, 0.0]) 
+    # cur_small = np.array([39.99999, 0.0])
+    # cur_big = np.array([0.0, 0.0])
+    # cur_small = np.array([0.0, 0.0])
+    print('SIM STARTS')
+    for i in range(10):
+        last_big = cur_big
+        last_small = cur_small
+        print(f'------------------------ITERATION {i}---------------------------')
+        cur_big = big_endian_cont(cur_big, cur_small, v)
+        cur_small = small_endian_cont(cur_small, cur_big, v)
+        n_b = new_belief(cur_big[0], cur_small[0], v)
+        print(f'belief: {n_b}, big: {cur_big[0]}, small: {cur_small[0]}')
+        print('------------------------ITERATION ENDS---------------------------')
+        if (i>0 and (np.linalg.norm(cur_big-last_big) <= 0.001) and (np.linalg.norm(cur_small-last_small) <= 0.001) ):
+            print(f'sim converges at ITERATION {i-1}')
             break 
     print('SIM ENDS')
 
@@ -185,7 +230,11 @@ def sim2(points):
 def main():
     points = getdata('best_response/data3.txt')
     # plotdata(points)
-    sim1(points, 20)
+
+    # sim_discrete(points, 10)
+    sim_cont(10)
+    
+
     # weights =[g_fct(np.linalg.norm(point-cur_belief),0,20) for point in points]
     # for i in range(len(points)):
     #     print(f'point: {points[i][0]}, weight: {weights[i]}')
