@@ -4,8 +4,8 @@ import scipy.optimize as opt
 from itertools import combinations
 import copy
 
-cur_belief = np.array([0.0, 0.0])
-big_target = np.array([30.0,0.0])
+cur_belief = np.array([30.0, 0.0])
+big_target = np.array([55.0,0.0])
 small_target = np.array([10.0, 0.0])
 
 """Load into data"""
@@ -107,7 +107,8 @@ def best_points_dis(points, x, y, target, variance):
 def best_points_cont(x, y, target, variance):
     coefs = [y[0], variance, target[0]]
     x0=x[0]
-    result = opt.minimize(distance, x0, args=coefs)
+    result = opt.basinhopping(distance, x0, niter=1000, minimizer_kwargs={'args':coefs})
+    # result = opt.minimize(distance, x0, args=coefs)
     print(result.message)
     x0 = np.array([result.x[0], 0.0])
     return x0
@@ -174,14 +175,14 @@ def sim_discrete(points, v):
     print('SIM ENDS')
 
 def sim_cont(v):
-    cur_big = copy.deepcopy(big_target)
-    cur_small = copy.deepcopy(small_target)
+    # cur_big = copy.deepcopy(big_target)
+    # cur_small = copy.deepcopy(small_target)
     # cur_big = np.array([60.0, 0.0]) 
     # cur_small = np.array([39.99999, 0.0])
-    # cur_big = np.array([0.0, 0.0])
-    # cur_small = np.array([0.0, 0.0])
+    cur_big = np.array([0.0, 0.0])
+    cur_small = np.array([0.0, 0.0])
     print('SIM STARTS')
-    for i in range(10):
+    for i in range(100):
         last_big = cur_big
         last_small = cur_small
         print(f'------------------------ITERATION {i}---------------------------')
