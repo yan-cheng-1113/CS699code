@@ -4,7 +4,7 @@ import scipy.optimize as opt
 from itertools import combinations
 import copy
 
-cur_belief = np.array([0.0, 0.0])
+cur_belief = np.array([-70.0, 0.0])
 big_target = np.array([50.0,0.0])
 small_target = np.array([-50.0, 0.0])
 
@@ -49,8 +49,8 @@ def distance(x, coefs):
 def best_points_cont(x, y, target, sd1, sd2):
     coefs = [y[0], sd1, sd2, target[0]]
     x0=x[0]
-    # result = opt.basinhopping(distance, x0, niter=1000, minimizer_kwargs={'args':coefs})
-    result = opt.minimize(distance, x0, args=coefs)
+    result = opt.basinhopping(distance, x0, niter=1000, minimizer_kwargs={'args':coefs})
+    # result = opt.minimize(distance, x0, args=coefs)
     print(result.message)
     x0 = np.array([result.x[0], 0.0])
     return x0
@@ -75,8 +75,8 @@ def sim_cont(sd):
     # cur_small = np.array([39.99999, 0.0])
     # cur_big = np.array([0.0, 0.0])
     # cur_small = np.array([0.0, 0.0])
-    big_arr=[]
-    small_arr=[]
+    big_arr=[cur_big[0]]
+    small_arr=[cur_small[0]]
     print('SIM STARTS')
     for i in range(100):
         last_big = cur_big
@@ -89,6 +89,8 @@ def sim_cont(sd):
         n_b = new_belief(last_big[0], cur_small[0], sd[0], sd[1])
         print(f'belief: {n_b}, big: {last_big[0]}, small: {cur_small[0]}')
         print('------------------------ITERATION ENDS---------------------------')
+        n_b = new_belief(cur_big[0], cur_small[0], sd[0], sd[1]) 
+        print(f'belief: {n_b}')
         if (i>0 and (np.linalg.norm(cur_big-last_big) <= 0.001) and (np.linalg.norm(cur_small-last_small) <= 0.001)):
             print(f'sim converges at ITERATION {i}')
             n_b = new_belief(cur_big[0], cur_small[0], sd[0], sd[1]) 
@@ -98,18 +100,25 @@ def sim_cont(sd):
         small_arr.append(cur_small[0])
     print('SIM ENDS')
 
-    iters = [i+1 for i in range(len(big_arr))]
+    iters = [i for i in range(len(big_arr))]
+    y = [0 for _ in range(len(big_arr))]
+    s_arr=np.arange(10, 10 + 10*len(big_arr),10)
+
+    # plt.scatter(big_arr, y, c = 'blue', s = s_arr, label='big')
+    # plt.scatter(small_arr, y, c = 'red', s = s_arr, label='small')
+
     plt.scatter(big_arr, iters, c = 'blue', label='big')
     plt.scatter(small_arr, iters, c = 'red', s = 20, label='small')
     plt.yticks(iters, iters)
     plt.xlabel('points chosen')
     plt.ylabel('iteration')
     plt.title('Points Chosen at Each Iteration')
+    plt.grid()
     plt.legend()
     plt.show()
 
 def main():
-    points = getdata('best_response/data3.txt')
+    # points = getdata('best_response/data3.txt')
     # plotdata(points)
 
     # sim_discrete(points, 10)
