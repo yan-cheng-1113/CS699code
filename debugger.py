@@ -13,20 +13,20 @@ def loss_calc(x_arr, y, vb, sd1, sd2, tar):
     return [(nb - tar)**2 for nb in nbs]
 
 def plot():
-    pt = [(random.uniform(-100, 0), 0)[0] for _ in range(1000)]
-    y = 50.0
-    vb = -70.0
-    sd1 = 10
-    sd2 = 10
-    tar = -50.0
+    pt = [(random.uniform(-70, 70), 0)[0] for _ in range(1000)]
+    y = 0.0
+    vb = 0.0
+    sd1 = 50
+    sd2 = 50
+    tar = 20.0
     nb = new_belief(pt, y, vb, sd1, sd2)
     loss = loss_calc(pt, y, vb, sd1, sd2, tar)
     figure, (ax1, ax2) = plt.subplots(2) 
     ax1.plot(pt, loss, 'o')
     ax1.set(ylabel='loss')
     ax2.plot(pt, nb, 'o')
-    ax1.set(xticks=np.arange(-50, 50, 10.0))
-    ax2.set(xticks=np.arange(-50, 50, 10.0))
+    ax1.set(xticks=np.arange(-70, 70, 10.0))
+    ax2.set(xticks=np.arange(-70, 70, 10.0))
     ax2.set(xlabel='point chosen', ylabel='new belief')
     plt.show()
 
