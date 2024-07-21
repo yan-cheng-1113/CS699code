@@ -1,8 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize as opt
+import scipy.stats as stats
+from scipy.stats import norm
 import copy
 import random
+import math
+from itertools import permutations
 
 """
 TIE BREAKING BY MOVING TO THE CLOSEST POINT TO THE PREV ITER
@@ -10,7 +14,11 @@ TIE BREAKING BY MOVING TO THE CLOSEST POINT TO THE PREV ITER
 """
 # cur_belief = np.array([0.0, 0.0])
 bound = [-100.0, 100.0]
-pts = np.arange(-100, 100, 0.01)
+pts = np.arange(-50, 50, 0.01)
+# targets = np.arange(-40, 40, 20.0).tolist()
+targets = [-30, -20, 25, 40]
+sig = 1
+# m = 0
 
 # plot br sequentially; as a function of iters; end reuslts as a function of params; loss function at the equilibria;
 # change cols in the table
@@ -28,13 +36,14 @@ pts = np.arange(-100, 100, 0.01)
 #             i+=1
 #     return x
 
-def loss_plt(x_arr, targets, i):
+def loss_plt(x_arr, i, n_b_func):
+    global targets
     n = len(x_arr)
     pts = [(random.uniform(-100, 110), 0)[0] for _ in range(1000)]
     new_belief = []
     for pt in pts:
         x_arr[i] = pt
-        new_belief.append(np.median(x_arr))
+        new_belief.append(n_b_func(x_arr[i], x_arr, i))
     # new_belief = [(sum(x_arr)[0] - x_arr[i][0] + pt) / n for pt in pts]
     loss = [(targets[i] - nb) ** 2 for nb in new_belief]
     figure, (ax1, ax2) = plt.subplots(2) 
@@ -47,50 +56,39 @@ def loss_plt(x_arr, targets, i):
     ax1.title.set_text(f'loss of influencer {i}')
     plt.show()
 
-def bf_opt(x_arr, i, target):
+def bf_opt(x_arr, i, target, n_b_func):
     global pts
-    cur_loss = (np.median(x_arr) - target)**2
-    min_loss = cur_loss
-    res = x_arr[i]
-    distance = np.array([(pt - x_arr[i])**2 for pt in pts])
-    d_inds = distance.argsort()
     arr = copy.deepcopy(x_arr)
-
+    cur_loss = (n_b_func(x_arr[i], x_arr, i) - target)**2
+    res = x_arr[i]
+    if(cur_loss == 0):
+        return res
+    min_loss = cur_loss
+    distances = np.array([(pt - x_arr[i])**2 for pt in pts])
+    d_inds = distances.argsort() # sort indices of points based on their distances to x_i
+    # brute force to find the optimal point
     for ind in d_inds:
         arr[i] = pts[ind]
-        new_belief = np.median(arr)
+        new_belief = n_b_func(arr[i], arr, i)
         loss = (target - new_belief)**2
         if loss < min_loss - 0.1:
             min_loss = loss
             res = pts[ind]
-
-    # new_belief = []    
-    # for pt in pts:
-    #     arr[i] = pt
-    #     new_belief.append(np.median(arr))
-
-    # loss = np.array([(target - nb) ** 2 for nb in new_belief])
-    # inds = loss.argsort()
-    # res = pts[inds[0]] 
-    # if(abs(loss[inds[0]] - cur_loss) < 0.0001):
-    #     res = x_arr[i]
-    # print(res)
-    # print(loss[inds[0]])
     return res
 
 """Given a distance, calculates its weight using Gaussian distribution"""
-def g_fct(x, sd):
-    global cur_belief
-    c = np.exp(-(x - cur_belief[0]) ** 2 / (2 * sd ** 2))
-    return c
+# def g_fct(x, sd):
+#     global cur_belief
+#     c = np.exp(-(x - cur_belief[0]) ** 2 / (2 * sd ** 2))
+#     return c
 
-def new_belief_gaussian(x, y, sd1, sd2, d):
-    # x = x - d + 2
-    c_1 = g_fct(x, sd1)
-    c_2 = g_fct(y, sd2) 
-    ret = (cur_belief[0] + c_1 * x + c_2 * y) / (1 + c_1 + c_2)
-    # print(f'new belief: {ret}')
-    return ret
+# def new_belief_gaussian(x, y, sd1, sd2, d):
+#     # x = x - d + 2
+#     c_1 = g_fct(x, sd1)
+#     c_2 = g_fct(y, sd2) 
+#     ret = (cur_belief[0] + c_1 * x + c_2 * y) / (1 + c_1 + c_2)
+#     # print(f'new belief: {ret}')
+#     return ret
 
 def new_belief_mean(x_i, x_arr, i):
     ret = (sum(x_arr) + x_i - x_arr[i]) / len(x_arr)
@@ -100,73 +98,130 @@ def new_belief_median(x_i, x_arr, i):
     # concatenated = np.concatenate(x_arr)
     return np.median(x_arr)
 
+def g_fct(x_i, m_i):
+    global sig
+    temp_sig = 0.0001
+    c = np.exp(-(x_i - m_i) ** 2 / (2 * (temp_sig ** 2)))
+    return c
+
+def new_belief_mean_gaussian(x_i, x_arr, i):
+    global targets
+    m_i = (sum(x_arr) - x_arr[i]) / (len(x_arr) - 1) # mean excluding i
+    c = g_fct(x_i, m_i)
+    if c < 0.7:
+        return m_i
+    else:
+        return (sum(x_arr) + x_i - x_arr[i]) / len(x_arr)
+    
+def new_belief_mean_interval(x_i, x_arr, i):
+    global targets, sig
+    m_i = (sum(x_arr) - x_arr[i]) / (len(x_arr) - 1) # mean excluding i
+    if m_i - sig < x_i < m_i + sig:
+        return (sum(x_arr) + x_i - x_arr[i]) / len(x_arr) 
+    else:
+        return m_i
+
+def new_belief_mean_w_penalty(x_i, x_arr, i):
+    global targets
+    tot = sum(x_arr) + x_i - x_arr[i]
+    ret = (tot) / len(x_arr)
+
+    cheating_distances = []
+    # find cheaters
+    for j in range(len(x_arr)):
+        m_temp = (sum(x_arr) - x_arr[j]) / (len(x_arr) - 1) if j == i else (tot - x_arr[j]) / (len(x_arr) - 1) 
+        if ((x_arr[j] - m_temp) * (targets[j] - m_temp)) > 0:
+            cheating_distances.append((x_arr[j] - m_temp))
+
+    # penalize the biggest cheater
+    eps = 1.5 / len(x_arr) # make eps a list
+    if len(cheating_distances) > 0:
+       max_cheating = max(cheating_distances, key=abs)
+       ret -= eps * math.copysign(1, max_cheating)*abs(max_cheating)
+    return ret
+
 def distance(x_i, coefs):
     # return (new_belief_median(x_i, coefs[0], coefs[1]) - coefs[2]) ** 2
-    return (new_belief_mean(x_i, coefs[0], coefs[1]) - coefs[2]) ** 2
-
-def best_points(func, x_i, coefs):
-    global bound
-    x0 = x_i
-    result = opt.minimize(func, x0, args=coefs, method = 'Nelder-Mead')
-    # print(result.message)
-    x0 = result.x[0]
-    if x0 < bound[0]:
-        x0 = bound[0]
-    if x0 > bound[1]:
-        x0 = bound[1]
-    return x0
-    # return bf_opt(coefs[0], coefs[1], coefs[2])
+    # return (new_belief_mean_gaussian(x_i, coefs[0], coefs[1]) - coefs[2]) ** 2
+    # return (new_belief_mean_w_penalty(x_i, coefs[0], coefs[1]) - coefs[2]) ** 2
+    # return (new_belief_mean(x_i, coefs[0], coefs[1]) - coefs[2]) ** 2
     
-def sim(x_arr, targets, n):
+    pass
+
+def best_points(func, x_i, coefs, nb_func):
+    global bound
+    # x0 = x_i
+    # result = opt.minimize(func, x0, args=coefs)
+    # x0 = result.x[0]
+    # if x0 < bound[0]:
+    #     x0 = bound[0]
+    # if x0 > bound[1]:
+    #     x0 = bound[1]
+    # return x0
+
+    return bf_opt(coefs[0], coefs[1], coefs[2], nb_func)
+    
+def sim(x_arr,n, func):
+    global targets
     print('SIM STARTS')
-    print(x_arr)
     print('-----------------------\n')
+    conv = False
     pts_arr = [[] for _ in range(n)]
-    cur_belief = new_belief_mean(x_arr[0], x_arr, 0)
+    # cur_belief = new_belief_mean(x_arr[0], x_arr, 0)
     # cur_belief = new_belief_median(x_arr[0], x_arr, 0)
+    # cur_belief = new_belief_mean_w_penalty(x_arr[0], x_arr, 0)
 
     for i in range(n):
         pts_arr[i].append(x_arr[i])
-    print('-----------------------')
-    print(f'Belief: {cur_belief}')
+    print(x_arr)
+    # print(cur_belief)
+    print()
 
     for i in range(100):
         last_x = copy.deepcopy(x_arr)
-        print(f'------------------------ITERATION {i+1}---------------------------') 
+        print(f'------------------------ITERATION {i+1}---------------------------\n') 
         for j in range(n):
             coefs = [x_arr, j, targets[j]] 
-            x_arr[j] = best_points(distance, last_x[j], coefs)
+            x_arr[j] = best_points(distance, last_x[j], coefs, func)
             # if j == 2:
             #     loss_plt(last_x, targets, j)
-            print(f'{x_arr}\n')
-            print(f'Belief: {new_belief_mean(x_arr[0], x_arr, 0)}\n')
+            str_arr = ', '.join(format(pt, '.3f') for pt in x_arr)
+            print(f'Points chosen: [{str_arr}]')
+            # cur_belief = new_belief_mean(x_arr[0], x_arr, 0) 
+            cur_belief = func(x_arr[j], x_arr, j) 
+            # print(f'Belief: {cur_belief}\n')
+            print(f'Belief: {cur_belief:.3f}\n')
         print('------------------------ITERATION ENDS---------------------------\n')
         if(i > 0):
-            if all(abs(last_x[j] - x_arr[j]) <= 0.001 for j in range(n)):
+            if all(abs(last_x[j] - x_arr[j]) <= 0.01 for j in range(n)):
                 print(f'sim converges at ITERATION {i}\n')
-                print(f'Belief: {new_belief_mean(x_arr[0], x_arr, 0)}\n')
+                print(f'Belief: {cur_belief:.3f}\n')
+                conv = True
                 break
+    
         for j in range(n):
             pts_arr[j].append(x_arr[j])
     
     print('---------------------------------\n')
     for i in range(n):
-        print(f'Influncer {i}\'s sequence: {pts_arr[i]}')
+        str_lst = ', '.join(format(pt, '.3f') for pt in pts_arr[i])
+        print(f'Influncer {i}\'s sequence: [{str_lst}]\n')
 
     iters = [j for j in range(len(pts_arr[0]))] 
     sizes = [5 + 20 * i for i in range(n)]
     sizes.reverse()
     for i in range(n):
         # iters = [j + 0.05*i for j in range(len(pts_arr[0]))]
-        plt.scatter(pts_arr[i], iters, s=sizes[i], label = f'influencer{i}')
-    plt.yticks(iters, iters)
-    plt.xlabel('points chosen')
-    plt.ylabel('iterations')
+        plt.scatter(iters, pts_arr[i], s=sizes[i], label = f'influencer{i}')
+    plt.xticks(iters, iters)
+    plt.ylabel('points chosen')
+    plt.xlabel('iterations')
     plt.title('Points Chosen at Each Iteration')
     plt.grid()
     plt.legend()
     plt.show()   
 
+    return cur_belief
 
 
 
@@ -251,20 +306,100 @@ def sim(x_arr, targets, n):
 #     plt.legend()
 #     plt.show()
 
+def bne_check(x_arr, i, sigma, n, nb_func):
+    global pts, targets
+    print(f'Point assigned: {x_arr[i]:.3f}')
+
+    z_other = []
+    min_loss = -1
+    num = 10 # number of points distributed around x_i
+    min_ind = -1
+    # distribute points for other agents
+    for k in range(n - 1):
+        z_other.append(np.random.normal(x_arr[i], 1, num).tolist())
+    
+    distances = np.array([(pt - x_arr[i])**2 for pt in pts])
+    d_inds = distances.argsort()
+    for ind in d_inds:
+        cumu_loss = 0
+        for j in range(num):
+            temp_arr = []
+            pdf_product = 1
+            for k in range(n - 1):
+                pdf_product = pdf_product * norm.pdf(z_other[k][j], x_arr[i], sigma)
+            temp_arr.extend([z_other[y][j] for y in range(n - 1)])
+            temp_arr.insert(i, pts[ind])
+            cumu_loss += pdf_product * (nb_func(temp_arr[i], temp_arr, i) - targets[i]) ** 2
+        expect_loss = cumu_loss
+        # expect_loss = cumu_loss / num
+        if min_loss == -1 or expect_loss < min_loss - 0.1:
+            min_loss = expect_loss
+            min_ind = ind
+    print(f'BNE point: {pts[min_ind]:.3f}')
+
+def discrete_bne(x_arr, i, delta, n, nb_func):
+    global pts, targets
+    cur_loss = (nb_func(x_arr[i], x_arr, i) - targets[i]) ** 2 
+    print(f'Point assigned to player {i}: {x_arr[i]:.3f}')
+
+    z_arr = [x_arr[i] - 2 * delta, x_arr[i] - delta, x_arr[i], x_arr[i] + delta, x_arr[i] + 2 * delta]
+    pr_arr = [0.1, 0.2, 0.4, 0.2, 0.1]
+    ind_combs = list(permutations([0, 1, 2, 3, 4], n-1))
+
+    min_loss = -1
+    min_ind = -1
+    distances = np.array([(pt - x_arr[i])**2 for pt in pts])
+    d_inds = distances.argsort() 
+
+    for ind in d_inds:
+       expect_loss = 0
+       for comb in ind_combs:
+           pr_multiplier = math.prod([pr_arr[comb[j]] for j in range(len(comb))])
+           temp_arr = [z_arr[comb[j]] for j in range(len(comb))]
+           temp_arr.insert(i, pts[ind])
+           expect_loss += pr_multiplier * ((nb_func(temp_arr[i], temp_arr, i) - targets[i]) ** 2) 
+       if min_loss == -1 or expect_loss < min_loss - 0.1:
+            min_loss = expect_loss
+            min_ind = ind 
+    print(f'BNE point for player {i}: {pts[min_ind]:.3f}')
+
 def main():
-    # points = getdata('best_response/data3.txt')
-    # plotdata(pointsi
-
+    global targets,sig
+    x_arr = np.random.normal(1, 1, 4).tolist()
     # sim_discrete(points, 10)
+    # print(new_belief_mean_w_penalty(-60.0, x_arr, 0))
+    # loss_plt(x_arr, 0, new_belief_mean_w_penalty)
+    
+    n = len(x_arr)
+    for i in range(n):
+        discrete_bne(x_arr, i, 0.3, n, new_belief_mean_w_penalty)
+        print(f'Target of player {i}: {targets[i]}')
+        print()
+    # bne_check(x_arr, 0, 1, n, new_belief_mean_w_penalty)
+    # for i in range(10):
+    #     x_arr = np.random.normal(1, 1, 2).tolist()
+    #     n = 2
+    #     discrete_bne(x_arr, 0, 0.2, n, new_belief_mean_w_penalty)
+    #     print()
+    # sim(x_arr, n, new_belief_mean_w_penalty)
+    
+    # pairs = list(zip(x_arr, targets))
+    # perms = permutations(pairs)
+    # believes = []
+    # for perm in perms:
+    #     x_perm, targets_perm = zip(*perm)
+    #     x_list = list(x_perm)
+    #     targets = list(targets_perm)
+    #     believes.append(sim(x_list, n))
 
-    targets = np.arange(-50, 50, 20.0).tolist()
-    # x_arr = [-50.0, -30.0, -10.0, 10.0, 30.0, 50.0]
-    # x_arr = [random.uniform(-100, 110) for _ in range(len(targets))]
-    x_arr = copy.deepcopy(targets)
-
-    # loss_plt(x_arr, targets, 2)
-    sim(x_arr, targets, len(x_arr))
-    # bf_opt(x_arr, 0, targets[0])
+    # print(believes)
+    
+    # plt.hist(believes)
+    # plt.title('Hist of Believes')
+    # plt.xlabel('Belief')
+    # plt.ylabel('Frequency')
+    # plt.show()
+    
     
     # sd=[10,10]
     
